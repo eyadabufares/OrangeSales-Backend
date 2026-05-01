@@ -9,8 +9,10 @@ namespace Orange.Training.SecondTask
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            string connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-                                      ?? builder.Configuration.GetSection("ConnectionStrings:DefaultConnection").Value;
+            // string connectionString = builder.Configuration.GetConnectionString("Default__Connection")
+                                      // ?? builder.Configuration.GetSection("ConnectionStrings:DefaultConnection").Value;
+            var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+                      ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
             builder.Services.AddScoped(sp => new NpgsqlConnection(connectionString));
             builder.Services.AddScoped<IDiscountService, DiscountService>();
@@ -40,7 +42,7 @@ namespace Orange.Training.SecondTask
 
             app.UseCors("AllowAll");
 
-            app.UseHttpsRedirection();
+            // app.UseHttpsRedirection();
 
             app.UseAuthorization();
             app.MapControllers();

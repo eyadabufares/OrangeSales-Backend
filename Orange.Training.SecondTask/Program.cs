@@ -23,7 +23,7 @@ namespace Orange.Training.SecondTask
 
             builder.Services.AddCors(options =>
             {
-                options.AddPolicy("AllowReactApp",
+                options.AddPolicy("AllowAll",
                     policy => policy.AllowAnyOrigin()
                                     .AllowAnyMethod()
                                     .AllowAnyHeader());
@@ -35,14 +35,13 @@ namespace Orange.Training.SecondTask
 
             var app = builder.Build();
 
-            if (app.Environment.IsDevelopment())
-            {
-                app.UseSwagger();
-                app.UseSwaggerUI();
-            }
+            app.UseSwagger();
+            app.UseSwaggerUI();
+
+            app.UseCors("AllowAll");
 
             app.UseHttpsRedirection();
-            app.UseCors("AllowReactApp");
+
             app.UseAuthorization();
             app.MapControllers();
 

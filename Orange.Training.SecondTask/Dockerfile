@@ -5,10 +5,12 @@ EXPOSE 443
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
-COPY ["Orange.Training.SecondTask.csproj", "."]
-RUN dotnet restore "./Orange.Training.SecondTask.csproj"
+
+COPY ["Orange.Training.SecondTask/Orange.Training.SecondTask.csproj", "Orange.Training.SecondTask/"]
+RUN dotnet restore "Orange.Training.SecondTask/Orange.Training.SecondTask.csproj"
+
 COPY . .
-WORKDIR "/src/."
+WORKDIR "/src/Orange.Training.SecondTask"
 RUN dotnet build "Orange.Training.SecondTask.csproj" -c Release -o /app/build
 
 FROM build AS publish

@@ -43,6 +43,7 @@ namespace Orange.Training.SecondTask.Services
                     Console.WriteLine("Error during register: " + ex.Message);
                     return false;
                 }
+            }
         }
 
         public async Task<bool> Login(LoginRequest request)

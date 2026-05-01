@@ -14,6 +14,7 @@ namespace Orange.Training.SecondTask
             var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
                       ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
+            AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
             builder.Services.AddScoped(sp => new NpgsqlConnection(connectionString));
             builder.Services.AddScoped<IDiscountService, DiscountService>();
             builder.Services.AddScoped<IOrderService, OrderService>();

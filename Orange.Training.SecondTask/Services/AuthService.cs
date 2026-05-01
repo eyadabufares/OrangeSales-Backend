@@ -1,84 +1,79 @@
-﻿using Microsoft.Data.SqlClient;
+﻿using Npgsql; 
 using Orange.Training.SecondTask.Models;
 using BCrypt.Net;
+using System.Data;
+using System.Threading.Tasks;
 
 namespace Orange.Training.SecondTask.Services
 {
     public class AuthService : IAuthService
     {
-        private readonly SqlConnection _connection;
+        private readonly string _connectionString;
 
-        public AuthService(SqlConnection connection)
+        public AuthService(IConfiguration configuration)
         {
-            _connection = connection;
+            _connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
+                                ?? configuration.GetConnectionString("DefaultConnection");
         }
 
-        public bool Register(RegisterRequest request)
+        public async Task<bool> Register(RegisterRequest request)
         {
             string hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
-            _connection.Open();
-            try
+            using (var conn = new NpgsqlConnection(_connectionString))
             {
-                string query = "INSERT INTO Users (FullName, Email, PasswordHash) VALUES (@FullName, @Email, @PasswordHash)";
-                using (SqlCommand cmd = new SqlCommand(query, _connection))
+                await conn.OpenAsync();
+                try
                 {
-                    cmd.Parameters.AddWithValue("@FullName", request.FullName);
-                    cmd.Parameters.AddWithValue("@Email", request.Email.Trim());
-                    cmd.Parameters.AddWithValue("@PasswordHash", hashedPassword);
+                    string query = "INSERT INTO \"users\" (fullname, email, passwordhash, createdat) VALUES (@FullName, @Email, @PasswordHash, @CreatedAt)";
 
-                    int rowsAffected = cmd.ExecuteNonQuery();
-                    return rowsAffected > 0;
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Error during register: " + ex.Message);
-                return false;
-            }
-            finally
-            {
-                _connection.Close();
-            }
-        }
-
-        public bool Login(LoginRequest request)
-        {
-            User user = null;
-
-            _connection.Open();
-            try
-            {
-                string query = "SELECT Email, PasswordHash FROM Users WHERE Email = @Email";
-                using (SqlCommand cmd = new SqlCommand(query, _connection))
-                {
-                    cmd.Parameters.AddWithValue("@Email", request.Email.Trim());
-                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    using (var cmd = new NpgsqlCommand(query, conn))
                     {
-                        if (reader.Read())
-                        {
-                            user = new User
-                            {
-                                Email = reader["Email"].ToString().Trim(),
-                                PasswordHash = reader["PasswordHash"].ToString().Trim()
-                            };
-                        }
+                        cmd.Parameters.AddWithValue("@FullName", request.FullName);
+                        cmd.Parameters.AddWithValue("@Email", request.Email.Trim().ToLower());
+                        cmd.Parameters.AddWithValue("@PasswordHash", hashedPassword);
+                        cmd.Parameters.AddWithValue("@CreatedAt", DateTime.UtcNow);
+
+                        int rowsAffected = await cmd.ExecuteNonQueryAsync();
+                        return rowsAffected > 0;
                     }
                 }
-
-                if (user != null)
+                catch (Exception ex)
                 {
-                    Console.WriteLine($"Found User: {user.Email}");
-                    Console.WriteLine($"Hash Length: {user.PasswordHash.Length}");
-
-                    return BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
+                    Console.WriteLine("Error during register: " + ex.Message);
+                    return false;
                 }
+        }
 
-                return false;
-            }
-            finally
+        public async Task<bool> Login(LoginRequest request)
+        {
+            using (var conn = new NpgsqlConnection(_connectionString))
             {
-                _connection.Close();
+                await conn.OpenAsync();
+                try
+                {
+                    string query = "SELECT email, passwordhash FROM \"users\" WHERE email = @Email";
+
+                    using (var cmd = new NpgsqlCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@Email", request.Email.Trim().ToLower());
+
+                        using (var reader = await cmd.ExecuteReaderAsync())
+                        {
+                            if (await reader.ReadAsync())
+                            {
+                                string storedHash = reader["passwordhash"].ToString();
+                                return BCrypt.Net.BCrypt.Verify(request.Password, storedHash);
+                            }
+                        }
+                    }
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Error during login: " + ex.Message);
+                    return false;
+                }
             }
         }
     }

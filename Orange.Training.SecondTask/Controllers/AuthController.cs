@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Orange.Training.SecondTask.Models;
 using Orange.Training.SecondTask.Services;
+using System.Threading.Tasks;
 
 namespace Orange.Training.SecondTask.Controllers
 {
@@ -16,33 +17,49 @@ namespace Orange.Training.SecondTask.Controllers
         }
 
         [HttpPost("register")]
-        public IActionResult Register([FromBody] RegisterRequest request)
+        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
-            var result = _authService.Register(request);
-
-            if (result)
+            try
             {
-                return Ok(new { message = "تم إنشاء الحساب بنجاح" });
-            }
+                var result = await _authService.Register(request);
 
-            return BadRequest(new { message = "حدث خطأ أثناء إنشاء الحساب، الإيميل مستخدم من قبل" });
+                if (result)
+                {
+                    return Ok(new { message = "تم إنشاء الحساب بنجاح" });
+                }
+
+                return BadRequest(new { message = "حدث خطأ أثناء إنشاء الحساب، الإيميل قد يكون مستخدماً من قبل" });
+            }
+            catch (System.Exception ex)
+            {
+                return StatusCode(500, new { message = "خطأ داخلي في السيرفر", details = ex.Message });
+            }
         }
 
         [HttpPost("login")]
-        public IActionResult Login([FromBody] LoginRequest request)
+        public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
-            var isValid = _authService.Login(request);
-
-            if (isValid)
+            try
             {
-                return Ok(new { message = "تم تسجيل الدخول بنجاح" });
-            }
+                var isValid = await _authService.Login(request);
 
-            return Unauthorized(new { message = "الإيميل أو كلمة المرور خطأ" });
+                if (isValid)
+                {
+                    return Ok(new { message = "تم تسجيل الدخول بنجاح" });
+                }
+
+                return Unauthorized(new { message = "الإيميل أو كلمة المرور غير صحيحة" });
+            }
+            catch (System.Exception ex)
+            {
+                return StatusCode(500, new { message = "خطأ أثناء محاولة تسجيل الدخول", details = ex.Message });
+            }
         }
     }
 }

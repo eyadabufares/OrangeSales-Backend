@@ -1,0 +1,6 @@
+@Orange.Training.SecondTask_HostAddress = http://localhost:5008
+
+GET {{Orange.Training.SecondTask_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

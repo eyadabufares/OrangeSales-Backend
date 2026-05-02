@@ -25,7 +25,7 @@ namespace Orange.Training.SecondTask.Services
             {
                 foreach (var item in request.Items)
                 {
-                    string priceQuery = "SELECT \"Price\" FROM \"Products\" WHERE \"Id\" = @ProductId";
+                    string priceQuery = "SELECT price FROM products WHERE id = @ProductId";
                     using (var cmd = new NpgsqlCommand(priceQuery, _connection, transaction))
                     {
                         cmd.Parameters.AddWithValue("@ProductId", item.ProductId);
@@ -40,9 +40,9 @@ namespace Orange.Training.SecondTask.Services
                 decimal tax = subtotal * 0.16m;
                 decimal total = subtotal + tax;
 
-                string insertOrderQuery = @"INSERT INTO ""Orders"" (""UserId"", ""Total"", ""Subtotal"", ""Tax"", ""OrderDate"", ""AiStatus"") 
+                string insertOrderQuery = @"INSERT INTO orders (userid, total, subtotal, tax, orderdate, aistatus) 
                                            VALUES (@UserId, @Total, @Subtotal, @Tax, NOW(), 'Pending') 
-                                           RETURNING ""Id"";";
+                                           RETURNING id;";
 
                 int newOrderId;
                 using (var cmd = new NpgsqlCommand(insertOrderQuery, _connection, transaction))
@@ -56,7 +56,7 @@ namespace Orange.Training.SecondTask.Services
 
                 foreach (var item in request.Items)
                 {
-                    string insertItemsQuery = "INSERT INTO \"OrderItems\" (\"OrderId\", \"ProductId\", \"Quantity\") VALUES (@OrderId, @ProductId, @Qty)";
+                    string insertItemsQuery = "INSERT INTO orderitems (orderid, productid, quantity) VALUES (@OrderId, @ProductId, @Qty)";
                     using (var cmd = new NpgsqlCommand(insertItemsQuery, _connection, transaction))
                     {
                         cmd.Parameters.AddWithValue("@OrderId", newOrderId);
@@ -91,7 +91,7 @@ namespace Orange.Training.SecondTask.Services
         {
             if (_connection.State != ConnectionState.Open) await _connection.OpenAsync();
 
-            string updateQuery = "UPDATE \"Orders\" SET \"AiStatus\" = @status, \"AiReason\" = @reason WHERE \"Id\" = @id";
+            string updateQuery = "UPDATE orders SET aistatus = @status, aireason = @reason WHERE id = @id";
             using (var cmd = new NpgsqlCommand(updateQuery, _connection))
             {
                 cmd.Parameters.AddWithValue("@status", status);
@@ -104,7 +104,7 @@ namespace Orange.Training.SecondTask.Services
         public List<OrderHistoryResponse> GetOrdersByUserId(int userId)
         {
             var orders = new List<OrderHistoryResponse>();
-            string query = "SELECT \"Id\", \"Subtotal\", \"Tax\", \"Total\", \"AiStatus\", \"AiReason\" FROM \"Orders\" WHERE \"UserId\" = @UserId ORDER BY \"OrderDate\" DESC";
+            string query = "SELECT id, subtotal, tax, total, aistatus, aireason FROM orders WHERE userid = @UserId ORDER BY orderdate DESC";
 
             if (_connection.State != ConnectionState.Open) _connection.Open();
             using (var cmd = new NpgsqlCommand(query, _connection))
@@ -136,21 +136,21 @@ namespace Orange.Training.SecondTask.Services
 
             try
             {
-                string deleteLogsQuery = "DELETE FROM \"OrderAiLogs\" WHERE \"OrderId\" = @OrderId";
+                string deleteLogsQuery = "DELETE FROM orderailogs WHERE orderid = @OrderId";
                 using (var cmd = new NpgsqlCommand(deleteLogsQuery, _connection, transaction))
                 {
                     cmd.Parameters.AddWithValue("@OrderId", orderId);
                     cmd.ExecuteNonQuery();
                 }
 
-                string deleteItemsQuery = "DELETE FROM \"OrderItems\" WHERE \"OrderId\" = @OrderId";
+                string deleteItemsQuery = "DELETE FROM orderitems WHERE orderid = @OrderId";
                 using (var cmd = new NpgsqlCommand(deleteItemsQuery, _connection, transaction))
                 {
                     cmd.Parameters.AddWithValue("@OrderId", orderId);
                     cmd.ExecuteNonQuery();
                 }
 
-                string deleteOrderQuery = "DELETE FROM \"Orders\" WHERE \"Id\" = @OrderId";
+                string deleteOrderQuery = "DELETE FROM orders WHERE id = @OrderId";
                 using (var cmd = new NpgsqlCommand(deleteOrderQuery, _connection, transaction))
                 {
                     cmd.Parameters.AddWithValue("@OrderId", orderId);

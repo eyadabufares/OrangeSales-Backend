@@ -1,4 +1,4 @@
-﻿using Npgsql; 
+﻿using Npgsql;
 using Orange.Training.SecondTask.Models;
 using BCrypt.Net;
 using System.Data;
@@ -75,6 +75,34 @@ namespace Orange.Training.SecondTask.Services
                     Console.WriteLine("Error during login: " + ex.Message);
                     return false;
                 }
+            }
+        }
+
+        public async Task<User> GetUserByEmail(string email)
+        {
+            using (var conn = new NpgsqlConnection(_connectionString))
+            {
+                await conn.OpenAsync();
+                string query = "SELECT id, email, fullname FROM \"users\" WHERE email = @Email";
+
+                using (var cmd = new NpgsqlCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@Email", email.Trim().ToLower());
+
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        if (await reader.ReadAsync())
+                        {
+                            return new User
+                            {
+                                Id = reader.GetInt32(0),
+                                Email = reader.GetString(1),
+                                FullName = reader.GetString(2)
+                            };
+                        }
+                    }
+                }
+                return null;
             }
         }
     }

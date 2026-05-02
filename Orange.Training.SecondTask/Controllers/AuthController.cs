@@ -51,7 +51,12 @@ namespace Orange.Training.SecondTask.Controllers
 
                 if (isValid)
                 {
-                    return Ok(new { message = "تم تسجيل الدخول بنجاح" });
+                    var user = await _authService.GetUserByEmail(request.Email);
+                    return Ok(new
+                    {
+                        message = "تم تسجيل الدخول بنجاح",
+                        userId = user.Id
+                    });
                 }
 
                 return Unauthorized(new { message = "الإيميل أو كلمة المرور غير صحيحة" });

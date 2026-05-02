@@ -1,4 +1,4 @@
-﻿using Microsoft.Data.SqlClient;
+﻿using Npgsql;
 using Newtonsoft.Json;
 using Orange.Training.SecondTask.Models;
 using System.Text;
@@ -8,9 +8,9 @@ namespace Orange.Training.SecondTask.Services
     public class AiService : IAiService
     {
         private readonly HttpClient _httpClient;
-        private readonly SqlConnection _connection;
+        private readonly NpgsqlConnection _connection;
 
-        public AiService(HttpClient httpClient, SqlConnection connection)
+        public AiService(HttpClient httpClient, NpgsqlConnection connection)
         {
             _httpClient = httpClient;
             _connection = connection;
@@ -24,8 +24,8 @@ namespace Orange.Training.SecondTask.Services
                 if (_connection.State != System.Data.ConnectionState.Open)
                     _connection.Open();
 
-                string query = "SELECT TOP 1 PromptTemplate FROM AiSettings ORDER BY Id DESC";
-                using (SqlCommand cmd = new SqlCommand(query, _connection))
+                string query = "SELECT \"PromptTemplate\" FROM \"AiSettings\" ORDER BY \"Id\" DESC LIMIT 1";
+                using (var cmd = new NpgsqlCommand(query, _connection))
                 {
                     var result = cmd.ExecuteScalar();
                     dbPrompt = result != null ? result.ToString() : "";
@@ -92,8 +92,8 @@ namespace Orange.Training.SecondTask.Services
             if (_connection.State != System.Data.ConnectionState.Open)
                 _connection.Open();
 
-            string query = "INSERT INTO OrderAiLogs (OrderId, RequestBody, ResponseJson, ResponseCode) VALUES (@OrderId, @Req, @Res, @Code)";
-            using (SqlCommand cmd = new SqlCommand(query, _connection))
+            string query = "INSERT INTO \"OrderAiLogs\" (\"OrderId\", \"RequestBody\", \"ResponseJson\", \"ResponseCode\") VALUES (@OrderId, @Req, @Res, @Code)";
+            using (var cmd = new NpgsqlCommand(query, _connection))
             {
                 cmd.Parameters.AddWithValue("@OrderId", orderId);
                 cmd.Parameters.AddWithValue("@Req", requestBody);

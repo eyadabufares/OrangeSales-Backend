@@ -1,13 +1,14 @@
-﻿using Microsoft.Data.SqlClient;
+﻿using Npgsql;
 using Orange.Training.SecondTask.Models;
+using System.Data;
 
 namespace Orange.Training.SecondTask.Services
 {
     public class DiscountService : IDiscountService
     {
-        private readonly SqlConnection _connection;
+        private readonly NpgsqlConnection _connection;
 
-        public DiscountService(SqlConnection connection)
+        public DiscountService(NpgsqlConnection connection)
         {
             _connection = connection;
         }
@@ -17,7 +18,7 @@ namespace Orange.Training.SecondTask.Services
             decimal subtotal = 0;
             decimal totalTax = 0;
 
-            _connection.Open();
+            if (_connection.State != ConnectionState.Open) _connection.Open();
             try
             {
                 foreach (var item in request.Items)
@@ -25,12 +26,12 @@ namespace Orange.Training.SecondTask.Services
                     decimal itemTotal = item.Price * item.Qty;
                     subtotal += itemTotal;
 
-                    string taxQuery = "SELECT TaxRate FROM Categories WHERE Name = @CategoryName";
-                    using (SqlCommand cmd = new SqlCommand(taxQuery, _connection))
+                    string taxQuery = "SELECT \"TaxRate\" FROM \"Categories\" WHERE \"Name\" = @CategoryName";
+                    using (var cmd = new NpgsqlCommand(taxQuery, _connection))
                     {
                         cmd.Parameters.AddWithValue("@CategoryName", item.Category);
                         var rate = cmd.ExecuteScalar();
-                        decimal taxRate = (rate != null) ? Convert.ToDecimal(rate) : 0.16m; 
+                        decimal taxRate = (rate != null) ? Convert.ToDecimal(rate) : 0.16m;
                         totalTax += itemTotal * taxRate;
                     }
                 }
@@ -38,8 +39,8 @@ namespace Orange.Training.SecondTask.Services
                 decimal couponDiscount = 0;
                 if (!string.IsNullOrEmpty(request.CouponCode))
                 {
-                    string couponQuery = "SELECT DiscountValue FROM Coupons WHERE Code = @Code AND IsActive = 1";
-                    using (SqlCommand cmd = new SqlCommand(couponQuery, _connection))
+                    string couponQuery = "SELECT \"DiscountValue\" FROM \"Coupons\" WHERE \"Code\" = @Code AND \"IsActive\" = 1";
+                    using (var cmd = new NpgsqlCommand(couponQuery, _connection))
                     {
                         cmd.Parameters.AddWithValue("@Code", request.CouponCode);
                         var disc = cmd.ExecuteScalar();
@@ -63,7 +64,7 @@ namespace Orange.Training.SecondTask.Services
             }
             finally
             {
-                _connection.Close(); 
+                _connection.Close();
             }
         }
     }

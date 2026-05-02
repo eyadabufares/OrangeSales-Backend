@@ -1,13 +1,13 @@
-﻿using Microsoft.Data.SqlClient;
+﻿using Npgsql;
 using Orange.Training.SecondTask.Models;
 
 namespace Orange.Training.SecondTask.Services
 {
     public class ReportService : IReportService
     {
-        private readonly SqlConnection _connection;
+        private readonly NpgsqlConnection _connection;
 
-        public ReportService(SqlConnection connection)
+        public ReportService(NpgsqlConnection connection)
         {
             _connection = connection;
         }
@@ -16,19 +16,19 @@ namespace Orange.Training.SecondTask.Services
         {
             var items = new List<ItemReportDto>();
 
-            _connection.Open();
+            if (_connection.State != System.Data.ConnectionState.Open) _connection.Open();
             try
             {
-                string query = @"SELECT p.Name, p.Price, oi.Quantity 
-                                 FROM OrderItems oi 
-                                 JOIN Products p ON oi.ProductId = p.Id 
-                                 WHERE oi.OrderId = @OrderId";
+                string query = @"SELECT p.""Name"", p.""Price"", oi.""Quantity"" 
+                                 FROM ""OrderItems"" oi 
+                                 JOIN ""Products"" p ON oi.""ProductId"" = p.""Id"" 
+                                 WHERE oi.""OrderId"" = @OrderId";
 
-                using (SqlCommand cmd = new SqlCommand(query, _connection))
+                using (var cmd = new NpgsqlCommand(query, _connection))
                 {
                     cmd.Parameters.AddWithValue("@OrderId", orderId);
 
-                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    using (var reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
                         {

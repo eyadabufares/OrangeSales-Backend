@@ -1,4 +1,4 @@
-﻿using Microsoft.Data.SqlClient;
+﻿using Npgsql;
 using Orange.Training.SecondTask.Models;
 using System.Data;
 
@@ -6,10 +6,10 @@ namespace Orange.Training.SecondTask.Services
 {
     public class OrderService : IOrderService
     {
-        private readonly SqlConnection _connection;
+        private readonly NpgsqlConnection _connection;
         private readonly IAiService _aiService;
 
-        public OrderService(SqlConnection connection, IAiService aiService)
+        public OrderService(NpgsqlConnection connection, IAiService aiService)
         {
             _connection = connection;
             _aiService = aiService;
@@ -19,17 +19,17 @@ namespace Orange.Training.SecondTask.Services
         {
             decimal subtotal = 0;
             if (_connection.State != ConnectionState.Open) await _connection.OpenAsync();
-            SqlTransaction transaction = _connection.BeginTransaction();
+            using var transaction = await _connection.BeginTransactionAsync();
 
             try
             {
                 foreach (var item in request.Items)
                 {
-                    string priceQuery = "SELECT Price FROM Products WHERE Id = @ProductId";
-                    using (SqlCommand cmd = new SqlCommand(priceQuery, _connection, transaction))
+                    string priceQuery = "SELECT \"Price\" FROM \"Products\" WHERE \"Id\" = @ProductId";
+                    using (var cmd = new NpgsqlCommand(priceQuery, _connection, transaction))
                     {
                         cmd.Parameters.AddWithValue("@ProductId", item.ProductId);
-                        var result = cmd.ExecuteScalar();
+                        var result = await cmd.ExecuteScalarAsync();
                         if (result != null)
                         {
                             subtotal += Convert.ToDecimal(result) * item.Qty;
@@ -40,38 +40,37 @@ namespace Orange.Training.SecondTask.Services
                 decimal tax = subtotal * 0.16m;
                 decimal total = subtotal + tax;
 
-                string insertOrderQuery = @"INSERT INTO Orders (UserId, Total, Subtotal, Tax, OrderDate, AiStatus) 
-                                           VALUES (@UserId, @Total, @Subtotal, @Tax, GETDATE(), 'Pending');
-                                           SELECT SCOPE_IDENTITY();";
+                string insertOrderQuery = @"INSERT INTO ""Orders"" (""UserId"", ""Total"", ""Subtotal"", ""Tax"", ""OrderDate"", ""AiStatus"") 
+                                           VALUES (@UserId, @Total, @Subtotal, @Tax, NOW(), 'Pending') 
+                                           RETURNING ""Id"";";
 
                 int newOrderId;
-                using (SqlCommand cmd = new SqlCommand(insertOrderQuery, _connection, transaction))
+                using (var cmd = new NpgsqlCommand(insertOrderQuery, _connection, transaction))
                 {
-                    cmd.Parameters.AddWithValue("@UserId", request.UserId); 
+                    cmd.Parameters.AddWithValue("@UserId", request.UserId);
                     cmd.Parameters.AddWithValue("@Total", total);
                     cmd.Parameters.AddWithValue("@Subtotal", subtotal);
                     cmd.Parameters.AddWithValue("@Tax", tax);
-                    newOrderId = Convert.ToInt32(cmd.ExecuteScalar());
+                    newOrderId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
                 }
 
                 foreach (var item in request.Items)
                 {
-                    string insertItemsQuery = "INSERT INTO OrderItems (OrderId, ProductId, Quantity) VALUES (@OrderId, @ProductId, @Qty)";
-                    using (SqlCommand cmd = new SqlCommand(insertItemsQuery, _connection, transaction))
+                    string insertItemsQuery = "INSERT INTO \"OrderItems\" (\"OrderId\", \"ProductId\", \"Quantity\") VALUES (@OrderId, @ProductId, @Qty)";
+                    using (var cmd = new NpgsqlCommand(insertItemsQuery, _connection, transaction))
                     {
                         cmd.Parameters.AddWithValue("@OrderId", newOrderId);
                         cmd.Parameters.AddWithValue("@ProductId", item.ProductId);
                         cmd.Parameters.AddWithValue("@Qty", item.Qty);
-                        cmd.ExecuteNonQuery();
+                        await cmd.ExecuteNonQueryAsync();
                     }
                 }
 
-                transaction.Commit();
-                _connection.Close();
+                await transaction.CommitAsync();
 
                 string realDescription = $"Order ID {newOrderId} with total {total} JOD.";
                 var aiResult = await _aiService.ValidateOrderAsync(newOrderId, total, realDescription);
-                UpdateOrderAiStatus(newOrderId, aiResult.Status, aiResult.Reason);
+                await UpdateOrderAiStatus(newOrderId, aiResult.Status, aiResult.Reason);
 
                 return new OrderResponse
                 {
@@ -81,45 +80,37 @@ namespace Orange.Training.SecondTask.Services
                     Total = total
                 };
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                if (_connection.State == ConnectionState.Open && transaction != null)
-                    transaction.Rollback();
-                System.Diagnostics.Debug.WriteLine(ex.Message);
+                if (transaction != null) await transaction.RollbackAsync();
                 throw;
-            }
-            finally
-            {
-                if (_connection.State == ConnectionState.Open)
-                    _connection.Close();
             }
         }
 
-        private void UpdateOrderAiStatus(int orderId, string status, string reason)
+        private async Task UpdateOrderAiStatus(int orderId, string status, string reason)
         {
-            if (_connection.State != ConnectionState.Open) _connection.Open();
+            if (_connection.State != ConnectionState.Open) await _connection.OpenAsync();
 
-            string updateQuery = "UPDATE Orders SET AiStatus = @status, AiReason = @reason WHERE Id = @id";
-            using (SqlCommand cmd = new SqlCommand(updateQuery, _connection))
+            string updateQuery = "UPDATE \"Orders\" SET \"AiStatus\" = @status, \"AiReason\" = @reason WHERE \"Id\" = @id";
+            using (var cmd = new NpgsqlCommand(updateQuery, _connection))
             {
                 cmd.Parameters.AddWithValue("@status", status);
                 cmd.Parameters.AddWithValue("@reason", (object)reason ?? DBNull.Value);
                 cmd.Parameters.AddWithValue("@id", orderId);
-                cmd.ExecuteNonQuery();
+                await cmd.ExecuteNonQueryAsync();
             }
-            _connection.Close();
         }
 
         public List<OrderHistoryResponse> GetOrdersByUserId(int userId)
         {
             var orders = new List<OrderHistoryResponse>();
-            string query = "SELECT Id, Subtotal, Tax, Total, AiStatus, AiReason FROM Orders WHERE UserId = @UserId ORDER BY OrderDate DESC";
+            string query = "SELECT \"Id\", \"Subtotal\", \"Tax\", \"Total\", \"AiStatus\", \"AiReason\" FROM \"Orders\" WHERE \"UserId\" = @UserId ORDER BY \"OrderDate\" DESC";
 
             if (_connection.State != ConnectionState.Open) _connection.Open();
-            using (SqlCommand cmd = new SqlCommand(query, _connection))
+            using (var cmd = new NpgsqlCommand(query, _connection))
             {
                 cmd.Parameters.AddWithValue("@UserId", userId);
-                using (SqlDataReader reader = cmd.ExecuteReader())
+                using (var reader = cmd.ExecuteReader())
                 {
                     while (reader.Read())
                     {
@@ -135,33 +126,32 @@ namespace Orange.Training.SecondTask.Services
                     }
                 }
             }
-            _connection.Close();
             return orders;
         }
 
         public bool DeleteOrder(int orderId)
         {
             if (_connection.State != ConnectionState.Open) _connection.Open();
-            SqlTransaction transaction = _connection.BeginTransaction();
+            using var transaction = _connection.BeginTransaction();
 
             try
             {
-                string deleteLogsQuery = "DELETE FROM OrderAiLogs WHERE OrderId = @OrderId";
-                using (SqlCommand cmd = new SqlCommand(deleteLogsQuery, _connection, transaction))
+                string deleteLogsQuery = "DELETE FROM \"OrderAiLogs\" WHERE \"OrderId\" = @OrderId";
+                using (var cmd = new NpgsqlCommand(deleteLogsQuery, _connection, transaction))
                 {
                     cmd.Parameters.AddWithValue("@OrderId", orderId);
                     cmd.ExecuteNonQuery();
                 }
 
-                string deleteItemsQuery = "DELETE FROM OrderItems WHERE OrderId = @OrderId";
-                using (SqlCommand cmd = new SqlCommand(deleteItemsQuery, _connection, transaction))
+                string deleteItemsQuery = "DELETE FROM \"OrderItems\" WHERE \"OrderId\" = @OrderId";
+                using (var cmd = new NpgsqlCommand(deleteItemsQuery, _connection, transaction))
                 {
                     cmd.Parameters.AddWithValue("@OrderId", orderId);
                     cmd.ExecuteNonQuery();
                 }
 
-                string deleteOrderQuery = "DELETE FROM Orders WHERE Id = @OrderId";
-                using (SqlCommand cmd = new SqlCommand(deleteOrderQuery, _connection, transaction))
+                string deleteOrderQuery = "DELETE FROM \"Orders\" WHERE \"Id\" = @OrderId";
+                using (var cmd = new NpgsqlCommand(deleteOrderQuery, _connection, transaction))
                 {
                     cmd.Parameters.AddWithValue("@OrderId", orderId);
                     int rowsAffected = cmd.ExecuteNonQuery();
@@ -172,12 +162,8 @@ namespace Orange.Training.SecondTask.Services
             }
             catch (Exception)
             {
-                if (transaction != null) transaction.Rollback();
+                transaction.Rollback();
                 return false;
-            }
-            finally
-            {
-                _connection.Close();
             }
         }
     }

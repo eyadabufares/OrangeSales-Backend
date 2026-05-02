@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.SqlClient;
+using Npgsql; 
 using Orange.Training.SecondTask.Models;
 
 namespace Orange.Training.SecondTask.Controllers
@@ -8,9 +8,9 @@ namespace Orange.Training.SecondTask.Controllers
     [ApiController]
     public class AiSettingsController : ControllerBase
     {
-        private readonly SqlConnection _connection;
+        private readonly NpgsqlConnection _connection; 
 
-        public AiSettingsController(SqlConnection connection)
+        public AiSettingsController(NpgsqlConnection connection)
         {
             _connection = connection;
         }
@@ -19,9 +19,11 @@ namespace Orange.Training.SecondTask.Controllers
         public IActionResult GetCurrentPrompt()
         {
             string currentPrompt = "";
-            _connection.Open();
-            string query = "SELECT TOP 1 PromptTemplate FROM AiSettings ORDER BY Id DESC";
-            using (SqlCommand cmd = new SqlCommand(query, _connection))
+            if (_connection.State != System.Data.ConnectionState.Open) _connection.Open();
+
+            string query = "SELECT \"PromptTemplate\" FROM \"AiSettings\" ORDER BY \"Id\" DESC LIMIT 1";
+
+            using (var cmd = new NpgsqlCommand(query, _connection))
             {
                 var result = cmd.ExecuteScalar();
                 currentPrompt = result != null ? result.ToString() : "No prompt found.";
@@ -36,9 +38,11 @@ namespace Orange.Training.SecondTask.Controllers
             if (string.IsNullOrEmpty(request.NewPrompt))
                 return BadRequest("Prompt cannot be empty");
 
-            _connection.Open();
-            string query = "INSERT INTO AiSettings (PromptTemplate, LastUpdated) VALUES (@NewPrompt, GETDATE())";
-            using (SqlCommand cmd = new SqlCommand(query, _connection))
+            if (_connection.State != System.Data.ConnectionState.Open) _connection.Open();
+
+            string query = "INSERT INTO \"AiSettings\" (\"PromptTemplate\", \"LastUpdated\") VALUES (@NewPrompt, NOW())";
+
+            using (var cmd = new NpgsqlCommand(query, _connection))
             {
                 cmd.Parameters.AddWithValue("@NewPrompt", request.NewPrompt);
                 cmd.ExecuteNonQuery();

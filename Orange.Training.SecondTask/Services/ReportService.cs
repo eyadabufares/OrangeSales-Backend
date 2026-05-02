@@ -1,5 +1,6 @@
 ﻿using Npgsql;
 using Orange.Training.SecondTask.Models;
+using System.Data;
 
 namespace Orange.Training.SecondTask.Services
 {
@@ -16,9 +17,11 @@ namespace Orange.Training.SecondTask.Services
         {
             var items = new List<ItemReportDto>();
 
-            if (_connection.State != System.Data.ConnectionState.Open) _connection.Open();
             try
             {
+                if (_connection.State != ConnectionState.Open)
+                    _connection.Open();
+
                 string query = @"SELECT p.name, p.price, oi.quantity 
                                  FROM orderitems oi 
                                  JOIN products p ON oi.productid = p.id 
@@ -42,9 +45,15 @@ namespace Orange.Training.SecondTask.Services
                     }
                 }
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Database Error in ReportService: {ex.Message}");
+                throw; 
+            }
             finally
             {
-                _connection.Close();
+                if (_connection.State == ConnectionState.Open)
+                    _connection.Close();
             }
 
             return new SalesReportResponse

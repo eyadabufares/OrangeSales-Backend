@@ -15,10 +15,25 @@ namespace Orange.Training.SecondTask.Controllers
             _reportService = reportService;
         }
 
-        [HttpPost("sales-summary")]
-        public SalesReportResponse GetSalesSummary([FromBody] int orderId)
+        [HttpGet("sales-summary/{orderId}")]
+        public IActionResult GetSalesSummary(int orderId)
         {
-            return _reportService.GetSalesSummary(orderId);
+            try
+            {
+                var response = _reportService.GetSalesSummary(orderId);
+
+                if (response == null || response.Orders == null)
+                {
+                    return NotFound(new { message = "Report data not found for this order." });
+                }
+
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in ReportController: {ex.Message}");
+                return StatusCode(500, new { message = "Internal server error while generating report." });
+            }
         }
     }
 }

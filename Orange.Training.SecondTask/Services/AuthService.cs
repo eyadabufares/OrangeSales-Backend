@@ -40,7 +40,7 @@ namespace Orange.Training.SecondTask.Services
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("Error during register: " + ex.Message);
+                    Console.WriteLine(ex.Message);
                     return false;
                 }
             }
@@ -72,7 +72,7 @@ namespace Orange.Training.SecondTask.Services
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("Error during login: " + ex.Message);
+                    Console.WriteLine(ex.Message);
                     return false;
                 }
             }
@@ -104,6 +104,68 @@ namespace Orange.Training.SecondTask.Services
                 }
                 return null;
             }
+        }
+
+        public async Task<UpdateProfileResponse> UpdateUserProfile(int userId, UpdateProfileRequest request)
+        {
+            using (var conn = new NpgsqlConnection(_connectionString))
+            {
+                await conn.OpenAsync();
+
+                string checkQuery = "SELECT passwordhash FROM \"users\" WHERE id = @Id";
+                string storedHash = "";
+                using (var checkCmd = new NpgsqlCommand(checkQuery, conn))
+                {
+                    checkCmd.Parameters.AddWithValue("@Id", userId);
+                    var result = await checkCmd.ExecuteScalarAsync();
+                    if (result == null) return new UpdateProfileResponse { Success = false, Message = "User not found" };
+                    storedHash = result.ToString();
+                }
+
+                if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, storedHash))
+                {
+                    return new UpdateProfileResponse { Success = false, Message = "Current password is incorrect" };
+                }
+
+                string passwordUpdate = "";
+                if (!string.IsNullOrEmpty(request.NewPassword))
+                {
+                    passwordUpdate = ", passwordhash = @NewPasswordHash";
+                }
+
+                string updateQuery = $@"UPDATE ""users"" 
+                                       SET fullname = @FullName, 
+                                           email = @Email, 
+                                           profileimageurl = @Img 
+                                           {passwordUpdate} 
+                                       WHERE id = @Id";
+
+                using (var cmd = new NpgsqlCommand(updateQuery, conn))
+                {
+                    cmd.Parameters.AddWithValue("@FullName", request.FullName);
+                    cmd.Parameters.AddWithValue("@Email", request.Email.Trim().ToLower());
+                    cmd.Parameters.AddWithValue("@Img", (object)request.ProfileImageUrl ?? DBNull.Value);
+                    cmd.Parameters.AddWithValue("@Id", userId);
+
+                    if (!string.IsNullOrEmpty(request.NewPassword))
+                        cmd.Parameters.AddWithValue("@NewPasswordHash", BCrypt.Net.BCrypt.HashPassword(request.NewPassword));
+
+                    int rows = await cmd.ExecuteNonQueryAsync();
+
+                    if (rows > 0)
+                    {
+                        return new UpdateProfileResponse
+                        {
+                            Success = true,
+                            Message = "Profile updated successfully",
+                            UpdatedFullName = request.FullName,
+                            UpdatedEmail = request.Email,
+                            UpdatedProfileImageUrl = request.ProfileImageUrl
+                        };
+                    }
+                }
+            }
+            return new UpdateProfileResponse { Success = false, Message = "An error occurred during update" };
         }
     }
 }

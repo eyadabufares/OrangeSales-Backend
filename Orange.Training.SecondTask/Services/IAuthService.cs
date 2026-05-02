@@ -8,5 +8,6 @@ namespace Orange.Training.SecondTask.Services
         Task<bool> Login(LoginRequest request);
         Task<bool> Register(RegisterRequest request);
         Task<User> GetUserByEmail(string email);
+        Task<UpdateProfileResponse> UpdateUserProfile(int userId, UpdateProfileRequest request);
     }
 }

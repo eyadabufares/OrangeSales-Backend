@@ -10,7 +10,7 @@ namespace Orange.Training.SecondTask
             var builder = WebApplication.CreateBuilder(args);
 
             var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-                                  ?? builder.Configuration.GetConnectionString("DefaultConnection");
+                                   ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
             AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
@@ -24,8 +24,8 @@ namespace Orange.Training.SecondTask
 
             builder.Services.AddCors(options =>
             {
-                options.AddPolicy("AllowVercel",
-                    policy => policy.WithOrigins("https://orange-sales-frontend.vercel.app")
+                options.AddPolicy("AllowVercelAndOthers",
+                    policy => policy.SetIsOriginAllowed(origin => true)
                                     .AllowAnyMethod()
                                     .AllowAnyHeader()
                                     .AllowCredentials());
@@ -40,7 +40,7 @@ namespace Orange.Training.SecondTask
             app.UseSwagger();
             app.UseSwaggerUI();
 
-            app.UseCors("AllowVercel");
+            app.UseCors("AllowVercelAndOthers");
 
             app.UseAuthorization();
             app.MapControllers();

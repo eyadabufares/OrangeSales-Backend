@@ -52,10 +52,17 @@ namespace Orange.Training.SecondTask.Controllers
                 if (isValid)
                 {
                     var user = await _authService.GetUserByEmail(request.Email);
+
+                    if (user == null)
+                        return NotFound(new { message = "المستخدم غير موجود" });
+
                     return Ok(new
                     {
                         message = "تم تسجيل الدخول بنجاح",
-                        userId = user.Id
+                        id = user.Id,
+                        fullName = user.FullName,
+                        email = user.Email,
+                        profileImageUrl = user.ProfileImageUrl
                     });
                 }
 

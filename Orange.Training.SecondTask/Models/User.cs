@@ -17,6 +17,9 @@ namespace Orange.Training.SecondTask.Models
         [Column("passwordhash")]
         public string PasswordHash { get; set; }
 
+        [Column("profileimageurl")]
+        public string? ProfileImageUrl { get; set; }
+
         [Column("createdat")]
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }

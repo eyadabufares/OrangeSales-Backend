@@ -26,7 +26,7 @@ namespace Orange.Training.SecondTask.Services
                     decimal itemTotal = item.Price * item.Qty;
                     subtotal += itemTotal;
 
-                    string taxQuery = "SELECT \"TaxRate\" FROM \"Categories\" WHERE \"Name\" = @CategoryName";
+                    string taxQuery = "SELECT taxrate FROM categories WHERE name = @CategoryName";
                     using (var cmd = new NpgsqlCommand(taxQuery, _connection))
                     {
                         cmd.Parameters.AddWithValue("@CategoryName", item.Category);
@@ -39,7 +39,7 @@ namespace Orange.Training.SecondTask.Services
                 decimal couponDiscount = 0;
                 if (!string.IsNullOrEmpty(request.CouponCode))
                 {
-                    string couponQuery = "SELECT \"DiscountValue\" FROM \"Coupons\" WHERE \"Code\" = @Code AND \"IsActive\" = 1";
+                    string couponQuery = "SELECT discountvalue FROM coupons WHERE code = @Code AND isactive = 1";
                     using (var cmd = new NpgsqlCommand(couponQuery, _connection))
                     {
                         cmd.Parameters.AddWithValue("@Code", request.CouponCode);

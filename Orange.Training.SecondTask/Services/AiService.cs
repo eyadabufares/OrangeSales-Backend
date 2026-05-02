@@ -24,7 +24,7 @@ namespace Orange.Training.SecondTask.Services
                 if (_connection.State != System.Data.ConnectionState.Open)
                     _connection.Open();
 
-                string query = "SELECT \"PromptTemplate\" FROM \"AiSettings\" ORDER BY \"Id\" DESC LIMIT 1";
+                string query = "SELECT prompttemplate FROM aisettings ORDER BY id DESC LIMIT 1";
                 using (var cmd = new NpgsqlCommand(query, _connection))
                 {
                     var result = cmd.ExecuteScalar();
@@ -64,7 +64,7 @@ namespace Orange.Training.SecondTask.Services
                 if (response.IsSuccessStatusCode)
                 {
                     aiResponse = JsonConvert.DeserializeObject<AiValidationResponse>(responseBody)
-                                 ?? new AiValidationResponse { Status = "not valid", Reason = "Invalid AI response format" };
+                                  ?? new AiValidationResponse { Status = "not valid", Reason = "Invalid AI response format" };
                 }
                 else if (statusCode == 429)
                 {
@@ -89,19 +89,29 @@ namespace Orange.Training.SecondTask.Services
 
         private void SaveAiLog(int orderId, string requestBody, string responseJson, int statusCode)
         {
-            if (_connection.State != System.Data.ConnectionState.Open)
-                _connection.Open();
-
-            string query = "INSERT INTO \"OrderAiLogs\" (\"OrderId\", \"RequestBody\", \"ResponseJson\", \"ResponseCode\") VALUES (@OrderId, @Req, @Res, @Code)";
-            using (var cmd = new NpgsqlCommand(query, _connection))
+            try
             {
-                cmd.Parameters.AddWithValue("@OrderId", orderId);
-                cmd.Parameters.AddWithValue("@Req", requestBody);
-                cmd.Parameters.AddWithValue("@Res", responseJson);
-                cmd.Parameters.AddWithValue("@Code", statusCode);
-                cmd.ExecuteNonQuery();
+                if (_connection.State != System.Data.ConnectionState.Open)
+                    _connection.Open();
+
+                string query = "INSERT INTO orderailogs (orderid, requestbody, responsejson, responsecode) VALUES (@OrderId, @Req, @Res, @Code)";
+                using (var cmd = new NpgsqlCommand(query, _connection))
+                {
+                    cmd.Parameters.AddWithValue("@OrderId", orderId);
+                    cmd.Parameters.AddWithValue("@Req", requestBody);
+                    cmd.Parameters.AddWithValue("@Res", responseJson);
+                    cmd.Parameters.AddWithValue("@Code", statusCode);
+                    cmd.ExecuteNonQuery();
+                }
             }
-            _connection.Close();
+            catch (Exception ex)
+            {
+                Console.WriteLine("AI Log Error: " + ex.Message);
+            }
+            finally
+            {
+                _connection.Close();
+            }
         }
     }
 }

@@ -19,10 +19,10 @@ namespace Orange.Training.SecondTask.Services
             if (_connection.State != System.Data.ConnectionState.Open) _connection.Open();
             try
             {
-                string query = @"SELECT p.""Name"", p.""Price"", oi.""Quantity"" 
-                                 FROM ""OrderItems"" oi 
-                                 JOIN ""Products"" p ON oi.""ProductId"" = p.""Id"" 
-                                 WHERE oi.""OrderId"" = @OrderId";
+                string query = @"SELECT p.name, p.price, oi.quantity 
+                                 FROM orderitems oi 
+                                 JOIN products p ON oi.productid = p.id 
+                                 WHERE oi.orderid = @OrderId";
 
                 using (var cmd = new NpgsqlCommand(query, _connection))
                 {
@@ -34,9 +34,9 @@ namespace Orange.Training.SecondTask.Services
                         {
                             items.Add(new ItemReportDto
                             {
-                                Product = reader["Name"].ToString(),
-                                Price = Convert.ToDecimal(reader["Price"]),
-                                Qty = Convert.ToInt32(reader["Quantity"])
+                                Product = reader["name"].ToString(),
+                                Price = Convert.ToDecimal(reader["price"]),
+                                Qty = Convert.ToInt32(reader["quantity"])
                             });
                         }
                     }

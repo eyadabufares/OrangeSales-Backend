@@ -9,12 +9,11 @@ namespace Orange.Training.SecondTask
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // string connectionString = builder.Configuration.GetConnectionString("Default__Connection")
-                                      // ?? builder.Configuration.GetSection("ConnectionStrings:DefaultConnection").Value;
             var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-                      ?? builder.Configuration.GetConnectionString("DefaultConnection");
+                                  ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
             AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
             builder.Services.AddScoped(sp => new NpgsqlConnection(connectionString));
             builder.Services.AddScoped<IDiscountService, DiscountService>();
             builder.Services.AddScoped<IOrderService, OrderService>();
@@ -22,14 +21,14 @@ namespace Orange.Training.SecondTask
             builder.Services.AddScoped<IAuthService, AuthService>();
 
             builder.Services.AddHttpClient<IAiService, AiService>();
-            builder.Services.AddScoped<IAiService, AiService>();
 
             builder.Services.AddCors(options =>
             {
-                options.AddPolicy("AllowAll",
-                    policy => policy.AllowAnyOrigin()
+                options.AddPolicy("AllowVercel",
+                    policy => policy.WithOrigins("https://orange-sales-frontend.vercel.app")
                                     .AllowAnyMethod()
-                                    .AllowAnyHeader());
+                                    .AllowAnyHeader()
+                                    .AllowCredentials());
             });
 
             builder.Services.AddControllers();
@@ -41,9 +40,7 @@ namespace Orange.Training.SecondTask
             app.UseSwagger();
             app.UseSwaggerUI();
 
-            app.UseCors("AllowAll");
-
-            // app.UseHttpsRedirection();
+            app.UseCors("AllowVercel");
 
             app.UseAuthorization();
             app.MapControllers();
